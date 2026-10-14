@@ -13,120 +13,215 @@ from openpyxl.drawing.image import Image as OpenPyxlImage
 from openpyxl.chart import BarChart, LineChart, ScatterChart, Reference, Series
 
 
+import re
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
+
+
 def create_apa_border():
-    """APAスタイル用ボーダー定義"""
-    thick_side = Side(border_style="medium", color="000000")
+    """APAスタイル用ボーダー定義 (基本の細い実線で統一)"""
     thin_side = Side(border_style="thin", color="000000")
-    return thick_side, thin_side
+    return thin_side, thin_side
+
+
+# APAスタイルでイタリック体にすべき統計記号の正規表現
+STAT_SYMBOLS_REGEX = re.compile(
+    r'(\b(?:Mdn|IQR|d_z|SE|SD|df|AIC|BIC|CFI|TLI|RMSEA|SRMR|VIF|MS|SS|N|n|M|t|F|p|r|R|B|z|d|V)\b|ηp²|η²|χ²|h²|R²|β|α|λ)'
+)
+
+
+def clean_latex_math_text(text):
+    """LaTeX表記（\chi^2, \eta^2, \alpha 等）をUnicode文字に変換"""
+    if not text:
+        return ""
+    s = str(text)
+    s = s.replace(r"\chi^2", "χ²").replace(r"\chi", "χ")
+    s = s.replace(r"\eta_p^2", "ηp²").replace(r"\eta^2", "η²").replace(r"\eta", "η")
+    s = s.replace(r"\alpha", "α").replace(r"\beta", "β").replace(r"\lambda", "λ")
+    return s
+
+
+def build_stat_rich_text(text, font_family="游ゴシック", font_size=11, bold=False):
+    """
+    セル文字列内の統計記号（p, t, F, M, SD, df, β 等）のみをイタリックにし、
+    日本語文字（値、平均値、自由度など）や記号は立体（italic=False）にする。
+    """
+    if text is None:
+        return None
+    s = clean_latex_math_text(str(text)).replace("$", "").strip()
+    if not s:
+        return None
+
+    parts = STAT_SYMBOLS_REGEX.split(s)
+    # 統計記号が含まれていなければ通常処理に任せる
+    has_stat = any(STAT_SYMBOLS_REGEX.fullmatch(p) for p in parts if p)
+    if not has_stat:
+        return None
+
+    font_regular = InlineFont(rFont=font_family, sz=font_size, b=bold, i=False)
+    font_italic = InlineFont(rFont=font_family, sz=font_size, b=bold, i=True)
+
+    blocks = []
+    for part in parts:
+        if not part:
+            continue
+        if STAT_SYMBOLS_REGEX.fullmatch(part):
+            blocks.append(TextBlock(font_italic, part))
+        else:
+            blocks.append(TextBlock(font_regular, part))
+
+    return CellRichText(*blocks)
+
+
+def build_note_rich_text(note_text, font_family="游ゴシック", font_size=10):
+    """
+    APAスタイルの注釈テキストを構築:
+    - 冒頭の「注.」または「Note.」のみイタリック
+    - 本文中の統計記号（F, p, t, N, M, SD, η², χ² 等）のみイタリック
+    - $ マークは完全除去し、日本語や数値・カンマ等はすべて通常の立体（italic=False）
+    """
+    if not note_text:
+        return None
+
+    raw_s = str(note_text).strip()
+    if not (raw_s.startswith("注.") or raw_s.startswith("注") or raw_s.startswith("Note")):
+        raw_s = f"注. {raw_s}"
+
+    s = clean_latex_math_text(raw_s)
+
+    font_regular = InlineFont(rFont=font_family, sz=font_size, b=False, i=False)
+    font_italic = InlineFont(rFont=font_family, sz=font_size, b=False, i=True)
+
+    blocks = []
+
+    # $...$ で囲まれている部分とそれ以外を分割
+    if "$" in s:
+        segments = re.split(r'(\$[^$]+\$)', s)
+    else:
+        segments = [s]
+
+    for seg_idx, seg in enumerate(segments):
+        if not seg:
+            continue
+        # $...$ で囲まれた統計記号
+        if seg.startswith("$") and seg.endswith("$") and len(seg) >= 2:
+            inner = seg[1:-1].strip()
+            # 統計記号としてイタリック
+            blocks.append(TextBlock(font_italic, inner))
+        else:
+            # $ 以外の通常文字列
+            # 先頭セグメントで「注.」が含まれている場合
+            cur_seg = seg
+            if seg_idx == 0:
+                if cur_seg.startswith("注."):
+                    blocks.append(TextBlock(font_italic, "注."))
+                    cur_seg = cur_seg[2:]
+                elif cur_seg.startswith("注"):
+                    blocks.append(TextBlock(font_italic, "注"))
+                    cur_seg = cur_seg[1:]
+                elif cur_seg.startswith("Note."):
+                    blocks.append(TextBlock(font_italic, "Note."))
+                    cur_seg = cur_seg[5:]
+
+            if not cur_seg:
+                continue
+
+            # 残りの平文から統計記号を探してイタリック化
+            sub_parts = STAT_SYMBOLS_REGEX.split(cur_seg)
+            for sub_p in sub_parts:
+                if not sub_p:
+                    continue
+                if STAT_SYMBOLS_REGEX.fullmatch(sub_p):
+                    blocks.append(TextBlock(font_italic, sub_p))
+                else:
+                    blocks.append(TextBlock(font_regular, sub_p))
+
+    return CellRichText(*blocks)
 
 
 def format_apa_table(ws, start_row, title, df, note=None, table_num=1, is_factor_analysis=False):
     """
     指定したワークシートにDFをAPA7thスタイルの表（日本語表記）として書き込む
-    - 因子分析表の場合：主因子負荷量を太字化、統計値行の上に区切り罫線を挿入
+    - 表番号のみ太字、表タイトルは斜体
+    - 表ヘッダー・カテゴリー名・データセルはすべて標準（太字なし）
+    - 統計記号（p, t, F, M, SD等）のみイタリックにし、日本語文字は立体を維持
+    - 罫線はすべて基本の細い実線（thin）で統一
     """
-    thick_side, thin_side = create_apa_border()
+    thin_side, _ = create_apa_border()
     font_family = "游ゴシック"
     
     current_row = start_row
     
-    # 1. 表番号 (太字)
+    # 1. 表番号 (APA規則: 太字)
     ws.cell(row=current_row, column=1, value=f"表 {table_num}")
     ws.cell(row=current_row, column=1).font = Font(name=font_family, size=11, bold=True)
     current_row += 1
     
-    # 2. 表タイトル (斜体)
-    ws.cell(row=current_row, column=1, value=title)
-    ws.cell(row=current_row, column=1).font = Font(name=font_family, size=11, italic=True)
+    # 2. 表タイトル (APA規則: 斜体、太字なし)
+    ws.cell(row=current_row, column=1, value=clean_latex_math_text(title).replace("$", ""))
+    ws.cell(row=current_row, column=1).font = Font(name=font_family, size=11, italic=True, bold=False)
     current_row += 1
-    
-    # 統計記号判定ロジック (APAスタイル: N, M, SD, t, p, F, r, β, d, η², χ², df, OR, α 等はイタリック体)
-    stat_keywords = [
-        " (N)", " (n)", " (M)", " (SD)", " (Mdn)", " (IQR)", " (SE)", " (df)", " (d)", " (d_z)",
-        " (β)", " (η²)", " (ηp²)", " (OR)", " (h²)", " (B)", " (χ²)", " (r)",
-        "M (SD)", "t値", "p値", "F値", "z値", "β", "df", "CFI", "TLI", "RMSEA", "SRMR", "AIC", "BIC"
-    ]
-    stat_exact = {
-        "N", "n", "M", "SD", "Mdn", "IQR", "SE", "t", "F", "p", "r", "R", "R²", "B", "β", "z",
-        "d", "d_z", "η²", "ηp²", "ω²", "χ²", "df", "AIC", "BIC", "CFI", "TLI", "RMSEA", "SRMR",
-        "OR", "VIF", "α", "λ", "h²", "MS", "SS"
-    }
-
-    def is_stat_symbol(text):
-        s = str(text).strip()
-        if s in stat_exact:
-            return True
-        for kw in stat_keywords:
-            if kw in s:
-                return True
-        return False
 
     header_row = current_row
     num_cols = len(df.columns) + 1  # インデックス + 列数
     
-    # ヘッダー行の書き込み
+    # ヘッダー行の書き込み (APA規則: 太字なし、統計記号のみイタリック)
     idx_name = df.index.name if df.index.name else ""
-    cell = ws.cell(row=header_row, column=1, value=str(idx_name))
-    cell.font = Font(name=font_family, size=11, bold=True, italic=is_stat_symbol(idx_name))
+    cell = ws.cell(row=header_row, column=1)
+    rich_idx = build_stat_rich_text(idx_name, font_family, font_size=11, bold=False)
+    if rich_idx:
+        cell.value = rich_idx
+    else:
+        cell.value = str(idx_name)
+        cell.font = Font(name=font_family, size=11, bold=False)
     cell.alignment = Alignment(horizontal="left", vertical="center")
-    cell.border = Border(top=thick_side, bottom=thin_side)
+    cell.border = Border(top=thin_side, bottom=thin_side)
     
     for c_idx, col_name in enumerate(df.columns, start=2):
-        cell = ws.cell(row=header_row, column=c_idx, value=str(col_name))
-        is_it = is_stat_symbol(col_name)
-        cell.font = Font(name=font_family, size=11, bold=True, italic=is_it)
+        cell = ws.cell(row=header_row, column=c_idx)
+        rich_col = build_stat_rich_text(col_name, font_family, font_size=11, bold=False)
+        if rich_col:
+            cell.value = rich_col
+        else:
+            cell.value = str(col_name)
+            cell.font = Font(name=font_family, size=11, bold=False)
         cell.alignment = Alignment(horizontal="right", vertical="center")
-        cell.border = Border(top=thick_side, bottom=thin_side)
+        cell.border = Border(top=thin_side, bottom=thin_side)
         
     current_row += 1
     data_start_row = current_row
     
-    # 因子分析の判定
-    factor_cols_indices = [i + 2 for i, c in enumerate(df.columns) if "第" in str(c) and "因子" in str(c)]
+    # 因子分析の統計値行の境界線検出
     stat_row_keywords = ["因子寄与", "寄与率", "累積寄与率", "分散説明率", "負荷量二乗和", "カイ二乗", "自由度", "CFI", "TLI", "RMSEA", "SRMR", "AIC", "BIC", "切片", "F値", "p値"]
     first_stat_row_idx = None
-    
     for r_idx, idx_val in enumerate(df.index):
         if any(kw in str(idx_val) for kw in stat_row_keywords):
             first_stat_row_idx = r_idx
             break
             
-    # データ行の書き込み
+    # データ行の書き込み (カテゴリー・データセルともに太字なし)
     for r_idx, (idx_val, row) in enumerate(df.iterrows()):
         r = current_row + r_idx
-        idx_cell = ws.cell(row=r, column=1, value=str(idx_val))
-        
-        is_stat_row = any(kw in str(idx_val) for kw in stat_row_keywords)
-        is_idx_stat = is_stat_symbol(idx_val)
-        idx_cell.font = Font(name=font_family, size=11, bold=is_stat_row, italic=is_idx_stat)
+        idx_cell = ws.cell(row=r, column=1)
+        rich_idx_val = build_stat_rich_text(str(idx_val), font_family, font_size=11, bold=False)
+        if rich_idx_val:
+            idx_cell.value = rich_idx_val
+        else:
+            idx_cell.value = str(idx_val)
+            idx_cell.font = Font(name=font_family, size=11, bold=False)
         idx_cell.alignment = Alignment(horizontal="left", vertical="center")
         
-        # 因子分析の統計値行の境界線（観測変数と寄与率の間の区切り罫線）
+        # 因子分析の統計値行の境界線（区切り罫線）
         is_first_stat = (r_idx == first_stat_row_idx)
-        
-        # 観測変数行での主因子判定
-        max_col_for_row = None
-        if is_factor_analysis and not is_stat_row and factor_cols_indices:
-            factor_vals = []
-            for c_pos in factor_cols_indices:
-                val = row.iloc[c_pos - 2]
-                try:
-                    factor_vals.append((abs(float(val)), c_pos))
-                except Exception:
-                    pass
-            if factor_vals:
-                max_col_for_row = max(factor_vals, key=lambda x: x[0])[1]
+        if is_first_stat:
+            idx_cell.border = Border(top=thin_side)
         
         for c_idx, val in enumerate(row, start=2):
             val_cell = ws.cell(row=r, column=c_idx)
-            
-            # 主因子の負荷量は太字
-            is_bold = is_stat_row or (c_idx == max_col_for_row)
-            val_cell.font = Font(name=font_family, size=11, bold=is_bold)
+            val_cell.font = Font(name=font_family, size=11, bold=False)
             
             if is_first_stat:
                 val_cell.border = Border(top=thin_side)
-                idx_cell.border = Border(top=thin_side)
                 
             if pd.isna(val):
                 val_cell.value = "-"
@@ -143,36 +238,51 @@ def format_apa_table(ws, start_row, title, df, note=None, table_num=1, is_factor
                     val_cell.number_format = "0.00"
                 val_cell.alignment = Alignment(horizontal="right", vertical="center")
             else:
-                val_cell.value = str(val)
+                val_str = str(val)
+                # セル値が統計文字列を含む場合はリッチテキスト変換
+                rich_val_str = build_stat_rich_text(val_str, font_family, font_size=11, bold=False)
+                if rich_val_str:
+                    val_cell.value = rich_val_str
+                else:
+                    val_cell.value = val_str
                 val_cell.alignment = Alignment(horizontal="left", vertical="center")
                 
     data_end_row = current_row + len(df) - 1
     
-    # テーブル最下部に太枠線を適用
+    # テーブル最下部に細い実線を適用 (基本の線で統一)
     for c_idx in range(1, num_cols + 1):
         cell = ws.cell(row=data_end_row, column=c_idx)
-        # 既存のtopボーダーを維持しつつbottomに太枠線を設定
         top_b = cell.border.top if cell.border else Side(border_style=None)
-        cell.border = Border(top=top_b, bottom=thick_side)
+        cell.border = Border(top=top_b, bottom=thin_side)
         
     current_row = data_end_row + 1
     
-    # 3. 注釈 (Note -> 注) (常にイタリック体)
+    # 3. 注釈 (Note: 冒頭「注.」と統計記号のみイタリック、日本語文字は立体、ドル記号除去)
     if note:
-        note_text = note if note.startswith("注.") else f"注. {note}"
-        note_cell = ws.cell(row=current_row, column=1, value=note_text)
-        note_cell.font = Font(name=font_family, size=10, italic=True)
+        note_cell = ws.cell(row=current_row, column=1)
+        rich_note = build_note_rich_text(note, font_family, font_size=10)
+        if rich_note:
+            note_cell.value = rich_note
+        else:
+            clean_text = clean_latex_math_text(note).replace("$", "")
+            if not clean_text.startswith("注."):
+                clean_text = f"注. {clean_text}"
+            note_cell.value = clean_text
+            note_cell.font = Font(name=font_family, size=10, italic=False, bold=False)
         current_row += 1
         
     current_row += 1
     
-    # 列幅の調整
+    # 列幅の調整 (ヘッダー行〜データ行の文字列長に基づいて計算し、注釈による過剰な広がりを防止)
     for col in ws.columns:
         max_len = 0
         col_letter = get_column_letter(col[0].column)
         for cell in col:
-            if cell.row >= start_row and cell.row <= current_row:
-                val_str = str(cell.value or "")
+            if cell.row >= header_row and cell.row <= data_end_row:
+                if isinstance(cell.value, CellRichText):
+                    val_str = "".join(b.text if hasattr(b, 'text') else str(b) for b in cell.value)
+                else:
+                    val_str = str(cell.value or "")
                 len_count = sum(2 if ord(c) > 256 else 1 for c in val_str)
                 max_len = max(max_len, len_count)
         ws.column_dimensions[col_letter].width = max(max_len + 4, 14)
