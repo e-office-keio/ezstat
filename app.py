@@ -16,7 +16,7 @@ importlib.reload(stats_engine)
 importlib.reload(apa_excel)
 
 st.set_page_config(
-    page_title="APAスタイル 統計解析 Webアプリ",
+    page_title="ezstat - APAスタイル 統計解析",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -38,15 +38,30 @@ if "sem_covs" not in st.session_state:
 st.markdown("""
 <style>
     .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
+        font-size: 2.8rem;
+        font-weight: 800;
         color: #1e3a8a;
+        letter-spacing: -0.02em;
         margin-bottom: 0.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+    .main-title span.app-tag {
+        font-size: 0.9rem;
+        font-weight: 600;
+        background-color: #e0e7ff;
+        color: #3730a3;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        letter-spacing: normal;
+        vertical-align: middle;
     }
     .sub-title {
         font-size: 1.05rem;
         color: #4b5563;
-        margin-bottom: 1.2rem;
+        line-height: 1.6;
+        margin-bottom: 1.4rem;
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
@@ -97,8 +112,14 @@ def load_data_file(uploaded_file, encoding_choice="自動判定 (Auto)", sheet_n
 
 
 def main():
-    st.markdown('<div class="main-title">📊 APAスタイル 統計解析 Webアプリ</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-title">CSV/Excelファイルをアップロード後、リコードや特定値の除外などのデータ加工を行い、変数と分析方法を選択して「分析を実行」ボタンでAPAスタイル（第7版）の表・図をExcel出力します。</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="main-title">
+        ezstat <span class="app-tag">APA 7th Edition Ready</span>
+    </div>
+    <div class="sub-title">
+        Python統計ライブラリ（SciPy / statsmodels / semopy 等）による高精度な分析と、APA第7版スタイルに準拠した図表（Excel / 画像）を出力するWebアプリケーション
+    </div>
+    """, unsafe_allow_html=True)
     
     # ------------------------------------------------------------------
     # サイドバー：ファイルアップロード & 出力レポート管理
@@ -163,47 +184,22 @@ def main():
                 st.toast("レポートリストをクリアしました", icon="🧹")
                 st.rerun()
 
-        st.divider()
-        st.header("🎨 グラフ設定")
-        avail_fonts = stats_engine.get_available_japanese_fonts()
-        font_labels = [label for label, fname in avail_fonts]
-        font_map = {label: fname for label, fname in avail_fonts}
-        
-        selected_font_label = st.selectbox(
-            "グラフの日本語フォント:",
-            font_labels,
-            index=0,
-            key="selected_font_label"
-        )
-        selected_font_name = font_map[selected_font_label]
-        stats_engine.set_current_font(selected_font_name)
-        st.caption(f"適用中: `{selected_font_name}`")
-
     # データフレームの初期ロード処理
     if uploaded_file is None:
         if "df" not in st.session_state:
             st.info("👈 サイドバーから分析したいCSVまたはExcelファイル（.xlsx / .xls）をアップロードしてください。")
-            with st.expander("💡 演習用サンプルデータで試す (有意差・相関が出る実践データ)", expanded=True):
-                st.markdown("""
-                **統計分析の演習や動作確認に最適なサンプルデータ（$N=150$ 人の心理・教育実験データ）を生成できます。**
-                - **t検定 / 分散分析**: 実験グループ（統制群・講義群・映像実験群）で事後テスト得点に明瞭な有意差あり
-                - **対応のあるt検定**: 事前テスト vs 事後テストで有意な学習効果あり
-                - **二元配置ANOVA**: 実験グループ × 指導経験（あり/なし）の主効果および交互作用あり
-                - **相関 / 重回帰**: 事後テスト得点と学習満足度の間に中程度の正の相関 ($r \\approx 0.60$) あり
-                - **ロジスティック回帰**: 事後テスト得点が合格判定（合格/不合格）に有意に寄与
-                - **因子分析 / 信頼性分析**: 2因子構造（学習意欲・理解度）と高い内的一貫性 ($\alpha \\approx 0.85$)
-                - **前処理演習**: 逆転項目（`Q7_退屈さ_逆転項目`）、無効値（`-99`）、欠損値（`NaN`）を適度に含有
-                """)
+            with st.expander("💡 演習用サンプルデータで試す", expanded=True):
+                st.caption("ファイルをお持ちでない場合、すぐに全機能を試せる実践演習用データ（N=150）をワンクリックで読み込めます。")
                 
                 c_samp1, c_samp2 = st.columns(2)
                 with c_samp1:
-                    if st.button("🎲 毎回異なるランダムなサンプルデータを生成", type="primary", use_container_width=True):
+                    if st.button("🎲 ランダムな演習用サンプルデータを生成", type="primary", use_container_width=True):
                         with st.spinner("実践演習用サンプルデータを生成中..."):
                             sample_data = stats_engine.generate_sample_dataset(n=150, seed=None)
                             st.session_state["raw_df"] = sample_data.copy()
                             st.session_state["df"] = sample_data.copy()
                             st.session_state["last_uploaded"] = "sample_data_random"
-                        st.toast("ランダムな演習用サンプルデータを読み込みました！", icon="🚀")
+                        st.toast("演習用サンプルデータを読み込みました！", icon="🚀")
                         st.rerun()
                 with c_samp2:
                     if st.button("🎯 再現可能な標準サンプルデータを生成 (Seed=42)", use_container_width=True):
@@ -260,7 +256,7 @@ def main():
                     "実行するツールを選択:",
                     [
                         "① 特定値の除外 (無効値 -99等の行を一括削除)",
-                        "⑦ 欠損値の処理 (リストワイズ削除 / 平均・中央値補完)",
+                        "⑦ 欠損値の処理 (リストワイズ削除)",
                         "⑧ 複数条件データ抽出 (AND / OR フィルタ)"
                     ],
                     key="proc_tool_clean"
@@ -469,44 +465,14 @@ def main():
 
         # --- ⑦ 欠損値処理 ---
         elif "⑦ 欠損値の処理" in proc_tool:
-            st.markdown("**データ内の欠損値（NaN/空白）を削除または補完します。**")
-            c_m1, c_m2 = st.columns(2)
-            with c_m1:
-                na_strategy = st.selectbox(
-                    "処理方法を選択:",
-                    [
-                        "リストワイズ削除 (欠損のある行を削除)",
-                        "平均値で補完 (数値変数のみ)",
-                        "中央値で補完 (数値変数のみ)",
-                        "最頻値で補完 (カテゴリ/数値)",
-                        "指定の固定値で補完"
-                    ],
-                    key="na_strategy"
-                )
-            with c_m2:
-                na_target_vars = st.multiselect("対象とする変数 (未指定の場合は全変数):", all_columns, default=[], key="na_vars")
-                
-            fill_val = None
-            if "指定の固定値" in na_strategy:
-                fill_val_str = st.text_input("補完する固定値を入力:", value="0", key="na_fill_val")
-                try:
-                    fill_val = float(fill_val_str)
-                except ValueError:
-                    fill_val = fill_val_str
-                    
-            if st.button("🧹 欠損値処理を実行", key="btn_apply_na"):
-                strat_map = {
-                    "リストワイズ削除 (欠損のある行を削除)": "listwise",
-                    "平均値で補完 (数値変数のみ)": "mean",
-                    "中央値で補完 (数値変数のみ)": "median",
-                    "最頻値で補完 (カテゴリ/数値)": "mode",
-                    "指定の固定値で補完": "constant"
-                }
-                strat_code = strat_map[na_strategy]
+            st.markdown("**データ内の欠損値（NaN/空白）を含む行をリストワイズ削除します。**")
+            na_target_vars = st.multiselect("対象とする変数 (未指定の場合は全変数で欠損行を削除):", all_columns, default=[], key="na_vars")
+            st.caption("※ 学術研究・論文執筆では、回答に欠損（空白）があるサンプルを除外するリストワイズ削除が標準的で安全な手法です。")
+            if st.button("🧹 リストワイズ削除を実行", key="btn_apply_na"):
                 target_v = na_target_vars if na_target_vars else None
-                new_df = stats_engine.handle_missing_values(df, strategy=strat_code, target_vars=target_v, fill_val=fill_val)
+                new_df = stats_engine.handle_missing_values(df, strategy="listwise", target_vars=target_v)
                 st.session_state["df"] = new_df
-                st.toast(f"欠損値処理を適用しました ({len(df)}行 → {len(new_df)}行)", icon="🧼")
+                st.toast(f"リストワイズ削除を適用しました ({len(df)}行 → {len(new_df)}行)", icon="🧼")
                 st.rerun()
 
         # --- ⑧ 複数条件フィルタ ---
