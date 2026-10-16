@@ -812,7 +812,7 @@ def main():
                         "sheet_name": f"構成比_{res['row_var']}_vs_{res['col_var']}",
                         "title": f"構成比 (%) 表 ({res['row_var']} × {res['col_var']})",
                         "df": res["pct_df"],
-                        "note": "注. 数値は列方向の構成比 (%) を表します。"
+                        "note": "注. 数値は列方向の構成比 (%) を表す。"
                     })
                     st.toast("『クロス集計表 & 構成比グラフ』をレポートリストに追加しました！", icon="📋")
                     st.rerun()
@@ -1608,7 +1608,7 @@ def main():
                     if not res["indirect_df"].empty:
                         st.markdown("**3. 媒介効果・間接効果の分解**")
                         st.dataframe(res["indirect_df"], use_container_width=True)
-                        st.caption("注. 総合効果 = 直接効果 + 間接効果。媒介比率は総合効果に対する間接効果の割合を表します。")
+                        st.caption("注. 総合効果 = 直接効果 + 間接効果。媒介比率は総合効果に対する間接効果の割合を表す。")
 
                 with c_res_r:
                     st.markdown("**📐 パスダイアグラム (Path Diagram)**")

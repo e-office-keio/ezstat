@@ -458,7 +458,7 @@ def analyze_frequency(df, var_name):
         ax.text(bar.get_x() + bar.get_width()/2, yval + (max(counts)*0.01), f"{int(yval)}", ha='center', va='bottom', fontsize=10)
         
     fig_bytes = fig_to_bytes(fig)
-    note = f"注. 全サンプル数 $N$ = {len(series)}。欠損値は除外されています。"
+    note = f"注. 全サンプル数 $N$ = {len(series)}。欠損値は除外した。"
     
     return res_df, note, fig_bytes
 
@@ -602,7 +602,7 @@ def analyze_crosstab(df, row_var, col_var):
     fig_bytes = fig_to_bytes(fig)
     
     p_str = "< .001" if p < 0.001 else f"= {p:.3f}"
-    note = f"注. 表内の数値は 度数 (列方向の%) を表します。カイ二乗検定: $\\chi^2$({dof}) = {chi2:.2f}, $p$ {p_str}, クラメールの$V$ = {cramers_v:.2f}。"
+    note = f"注. 表内の数値は度数（列方向の%）を表す。カイ二乗検定: $\\chi^2$({dof}) = {chi2:.2f}, $p$ {p_str}, クラメールの$V$ = {cramers_v:.2f}。"
     
     return ct_formatted_df, pct_df, note, fig_bytes
 
@@ -947,7 +947,7 @@ def analyze_factor_analysis(df, num_vars, n_factors=2, rotation="promax"):
     fig_bytes = fig_to_bytes(fig)
     
     rot_jp = "プロマックス回転" if rotation == "promax" else "バリマックス回転"
-    note = f"注. 因子回転法: {rot_jp}。主因子の負荷量順に項目をソート済み。太字は各項目の主因子負荷量を表します。総サンプル数 $N$ = {len(clean_df)}。"
+    note = f"注. 因子回転法: {rot_jp}。主因子の負荷量順に項目をソート済み。太字は各項目の主因子負荷量を表す。総サンプル数 $N$ = {len(clean_df)}。"
     
     combined_df = pd.concat([sorted_loadings_df, variance_df], axis=0)
     
@@ -1610,7 +1610,7 @@ def analyze_sem(df, latent_defs=None, paths=None, covariances=None, auto_exogeno
 
     cfi_val = fit_df.loc["CFI (適合度指数)", "値"] if "CFI (適合度指数)" in fit_df.index else 0.95
     rmsea_val = fit_df.loc["RMSEA (二乗平均平方根誤差)", "値"] if "RMSEA (二乗平均平方根誤差)" in fit_df.index else 0.05
-    note = f"注. サンプルサイズ $N$ = {n_sample}。$CFI$ = {cfi_val:.3f}, $RMSEA$ = {rmsea_val:.3f}。実線矢印は有意なパス ($p$ < .05)、点線矢印は非有意 (ns)、点線両矢印は共分散 (相関) を表します。*** $p$ < .001, ** $p$ < .01, * $p$ < .05。"
+    note = f"注. サンプルサイズ $N$ = {n_sample}。$CFI$ = {cfi_val:.3f}, $RMSEA$ = {rmsea_val:.3f}。実線矢印は有意なパス ($p$ < .05)、点線矢印は非有意 (ns)、点線両矢印は共分散 (相関) を表す。*** $p$ < .001, ** $p$ < .01, * $p$ < .05。"
 
     return param_df, fit_df, indirect_df, note, fig_bytes, {
         "latent_names": list(latent_names),
