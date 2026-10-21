@@ -1,5 +1,9 @@
 # 📊 ezstat - APA第7版準拠 統計解析 Webアプリケーション
 
+<p align="center">
+  <img src="Logo.png" alt="ezstat Logo" width="750">
+</p>
+
 **ezstat** は、Pythonの統計解析ライブラリ（SciPy, statsmodels, scikit-learn, semopy等）による高精度な分析と、APAスタイル（第7版）に準拠した図表をExcelや画像として出力できる統計解析Webアプリケーションです。
 
 CSVやExcelファイルをアップロードしてデータ前処理（リコード、特定値の除外、欠損値処理、合成スコア作成等）を行い、目的の統計分析を選択してワンクリックでAPA形式のレポートを作成・ダウンロードできます。

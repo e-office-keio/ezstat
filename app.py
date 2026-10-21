@@ -3,6 +3,7 @@ APA Style Statistical Analysis Web Application using Streamlit.
 (Features: Instant Sidebar Refresh on Queue Add, Scrollable Plot Containers, Japanese Interface)
 """
 
+import os
 import io
 import importlib
 import streamlit as st
@@ -187,6 +188,10 @@ def main():
     # データフレームの初期ロード処理
     if uploaded_file is None:
         if "df" not in st.session_state:
+            logo_path = os.path.join(os.path.dirname(__file__), "Logo.png")
+            if os.path.exists(logo_path):
+                st.image(logo_path, use_container_width=True)
+
             st.info("👈 サイドバーから分析したいCSVまたはExcelファイル（.xlsx / .xls）をアップロードしてください。")
             with st.expander("💡 演習用サンプルデータで試す", expanded=True):
                 st.caption("ファイルをお持ちでない場合、すぐに全機能を試せる実践演習用データ（N=150）をワンクリックで読み込めます。")
