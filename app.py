@@ -162,6 +162,12 @@ def main():
                     with pd.ExcelWriter(s_io, engine="openpyxl") as writer:
                         curr_df.to_excel(writer, index=False, sheet_name="加工済みデータ")
                     st.download_button("Excel (.xlsx)", data=s_io.getvalue(), file_name="加工済みデータ.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="sb_dl_xlsx", use_container_width=True)
+            
+            if st.button("🔄 データをリセットしてトップに戻る", use_container_width=True):
+                for k in ["df", "raw_df", "last_uploaded", "results"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
+                st.rerun()
         
         st.divider()
         st.header("📋 出力レポート管理")
@@ -188,9 +194,29 @@ def main():
     # データフレームの初期ロード処理
     if uploaded_file is None:
         if "df" not in st.session_state:
-            logo_path = os.path.join(os.path.dirname(__file__), "Logo.png")
-            if os.path.exists(logo_path):
-                st.image(logo_path, use_container_width=True)
+            # ロゴ画像の読み込み（ローカルファイル・複数パス・GitHub Raw URLへの確実なフォールバック）
+            logo_candidates = [
+                os.path.join(os.path.dirname(__file__), "Logo.png"),
+                os.path.join(os.getcwd(), "Logo.png"),
+                "Logo.png",
+                os.path.join(os.path.dirname(__file__), "logo.png"),
+                "logo.png",
+            ]
+            logo_src = None
+            for p in logo_candidates:
+                if os.path.exists(p):
+                    logo_src = p
+                    break
+            if not logo_src:
+                logo_src = "https://raw.githubusercontent.com/e-office-keio/ezstat/main/Logo.png"
+
+            try:
+                st.image(logo_src, use_container_width=True)
+            except Exception:
+                try:
+                    st.image("https://raw.githubusercontent.com/e-office-keio/ezstat/main/Logo.png", use_container_width=True)
+                except Exception:
+                    pass
 
             st.info("👈 サイドバーから分析したいCSVまたはExcelファイル（.xlsx / .xls）をアップロードしてください。")
             with st.expander("💡 演習用サンプルデータで試す", expanded=True):
