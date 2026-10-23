@@ -512,7 +512,7 @@ def build_full_excel_report(analysis_results):
                     ws.add_chart(chart, "H2")
                     has_native_chart = True
 
-                # 7. 重回帰分析: 標準化偏回帰係数 (Beta) 比較棒グラフ
+                # 7. 重回帰分析: 実測値 vs. 予測値の散布図 (画像) & 標準化偏回帰係数 (Beta) ネイティブチャート
                 elif "回帰分析" in sheet_name:
                     beta_col = None
                     for c_i, col in enumerate(df.columns, start=2):
@@ -538,10 +538,16 @@ def build_full_excel_report(analysis_results):
                             cats_ref = Reference(ws, min_col=1, min_row=start_r, max_row=data_info["data_end_row"])
                             chart.add_data(data_ref, titles_from_data=True)
                             chart.set_categories(cats_ref)
-                            ws.add_chart(chart, "H2")
+                            
+                            # 実測値 vs. 予測値の散布図 (画面表示プロット) がある場合は H2 に配置し、β横棒グラフを H20 に配置
+                            if fig_bytes is not None:
+                                add_image_to_sheet(ws, fig_bytes, cell_location="H2")
+                                ws.add_chart(chart, "H20")
+                            else:
+                                ws.add_chart(chart, "H2")
                             has_native_chart = True
 
-                # 8. ロジスティック回帰: オッズ比 (OR) 比較横棒グラフ
+                # 8. ロジスティック回帰: フォレストプロット (画像) & オッズ比 (OR) ネイティブ横棒グラフ
                 elif "ロジスティック" in sheet_name:
                     or_col = None
                     for c_i, col in enumerate(df.columns, start=2):
@@ -566,7 +572,13 @@ def build_full_excel_report(analysis_results):
                             cats_ref = Reference(ws, min_col=1, min_row=start_r, max_row=data_info["data_end_row"])
                             chart.add_data(data_ref, titles_from_data=True)
                             chart.set_categories(cats_ref)
-                            ws.add_chart(chart, "H2")
+                            
+                            # フォレストプロット画像がある場合は H2 に配置し、オッズ比横棒グラフを H20 に配置
+                            if fig_bytes is not None:
+                                add_image_to_sheet(ws, fig_bytes, cell_location="H2")
+                                ws.add_chart(chart, "H20")
+                            else:
+                                ws.add_chart(chart, "H2")
                             has_native_chart = True
 
                 # 9. 因子分析: スクリープロット (固有値推移折れ線グラフ)
