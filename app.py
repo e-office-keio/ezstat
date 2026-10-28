@@ -120,12 +120,20 @@ def main():
     <div class="sub-title">
         Python統計ライブラリ（SciPy / statsmodels / semopy 等）による高精度な分析と、APA第7版スタイルに準拠した図表（Excel / 画像）を出力するWebアプリケーション
     </div>
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 7px 14px; margin-bottom: 1.2rem; font-size: 0.88rem; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+        <span>🌐 <b>負荷分散・予備サーバー</b>（講義・ゼミ等のアクセス集中時に使い分けください）:</span>
+        <span style="display: flex; gap: 8px;">
+            <a href="https://ezstat.streamlit.app" target="_blank" style="text-decoration: none; font-weight: 600; color: #1e3a8a; background: #e0e7ff; padding: 3px 10px; border-radius: 4px;">📡 サーバー1 (メイン)</a>
+            <a href="https://ezstat2.streamlit.app" target="_blank" style="text-decoration: none; font-weight: 600; color: #047857; background: #d1fae5; padding: 3px 10px; border-radius: 4px;">🚀 サーバー2 (予備)</a>
+        </span>
+    </div>
     """, unsafe_allow_html=True)
     
     # ------------------------------------------------------------------
     # サイドバー：ファイルアップロード & 出力レポート管理
     # ------------------------------------------------------------------
     with st.sidebar:
+        st.caption("🔄 **サーバー切り替え**: [📡 サーバー1](https://ezstat.streamlit.app) ｜ [🚀 サーバー2](https://ezstat2.streamlit.app)")
         st.header("📂 データアップロード")
         uploaded_file = st.file_uploader("ファイルを選択 (CSV / Excel)", type=["csv", "xlsx", "xls"])
         
